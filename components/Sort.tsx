@@ -1,8 +1,7 @@
 import { Picker } from '@react-native-picker/picker';
 import Router from 'next/router';
-import { useContext, useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { useHover } from 'react-native-web-hooks';
 
 import { colors, darkColors, P } from '~/common/styleguide';
 import CustomAppearanceContext from '~/context/CustomAppearanceContext';
@@ -52,15 +51,13 @@ const sorts = [
 ];
 
 export const SortButton = ({ query: { order, direction, offset }, query }: SortButtonProps) => {
-  const [sortValue, setSortValue] = useState<QueryOrder>(order);
-  const [sortDirection, setSortDirection] = useState<QueryOrderDirection>(direction);
-  const [paginationOffset, setPaginationOffset] = useState<number | null>(
+  const [sortValue, setSortValue] = useState<QueryOrder | undefined>(order);
+  const [sortDirection, setSortDirection] = useState<QueryOrderDirection | undefined>(direction);
+  const [paginationOffset, setPaginationOffset] = useState<number | undefined>(
     typeof offset === 'string' ? parseInt(offset, 10) : offset
   );
+  const [isSortIconHovered, setIsSortIconHovered] = useState(false);
   const { isDark } = useContext(CustomAppearanceContext);
-
-  const sortIconRef = useRef();
-  const isSortIconHovered = useHover(sortIconRef);
 
   useEffect(() => {
     const url = urlWithQuery('/', {
@@ -70,7 +67,7 @@ export const SortButton = ({ query: { order, direction, offset }, query }: SortB
       offset: paginationOffset,
     });
     if (url !== Router.pathname) {
-      Router.push(url);
+      void Router.push(url);
     }
   }, [sortValue, sortDirection]);
 
@@ -86,7 +83,8 @@ export const SortButton = ({ query: { order, direction, offset }, query }: SortB
           sideOffset={8}
           trigger={
             <Pressable
-              ref={sortIconRef}
+              onHoverIn={() => setIsSortIconHovered(true)}
+              onHoverOut={() => setIsSortIconHovered(false)}
               style={sortDirection === 'ascending' && styles.flippedIcon}
               aria-label="Toggle sort direction"
               onPress={() => {

@@ -12,6 +12,10 @@
   </a>
 </p>
 
+> [!TIP]
+> Are you looking for an integration with VS Code? Check out our official extension:
+> * https://github.com/react-native-community/vscode-react-native-directory
+
 ## How do I know I'm at the right place?
 
 - You made a repository on GitHub and you want the world to know it works with React Native.
@@ -135,7 +139,7 @@
 - #### `template`
   **(boolean)** - signify that a library is a new project template.
 - #### `newArchitecture`
-  **(boolean)** - signify that a library supports, or not, the New Architecture. Skipping the field will result in "untested" status, unless automatic support detection returned a result. You can provide additional context with the `newArchitectureNote` field, if needed.
+  **(boolean|'new-arch-only')** - signify that a library supports both, or not, the New Architecture and the Old Architecture or only the New Architecture. Skipping the field will result in "untested" status, unless automatic support detection returned a result. You can provide additional context with the `newArchitectureNote` field, if needed.
 
 > [!TIP]
 > Set `newArchitecture` field only when automatic architecture detection fails for your package, despite it supports the New Architecture.
@@ -166,6 +170,7 @@ You should be able to visit `localhost:3000` in your browser.
 
 - Visit https://github.com/settings/developers to get your keys (don't worry about the callback URL, put whatever you want).
 - Load the `GITHUB_TOKEN` environment variable into your shell.
+- Set `ONLY_WRITE_LOCAL_DATA_FILE` to `true` in *scripts/build-and-score-data.ts* to skip fetching and updating store blob from Vercel and instead use and update the local `assets/data.json` file. 
 
 This command creates site data in `./assets/data.json`
 
@@ -220,7 +225,7 @@ https://reactnative.directory/api/libraries
 
 ## I don't like how you calculate scores.
 
-- Submit a PR with changes to `scripts/calculate-score.js`.
+- Submit a PR with changes to `scripts/calculate-score.ts`.
 - You have all the power! Tell us what you want.
 
 ## How do I deploy my own version of this?

@@ -1,4 +1,4 @@
-import { useContext } from 'react';
+import { Fragment, useContext } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { A, colors, darkColors, Label, useLayout } from '~/common/styleguide';
@@ -22,7 +22,7 @@ const UnmaintainedLabel = ({ alternatives }) => {
             flexDirection: isSmallScreen ? 'column' : 'row',
             backgroundColor: isDark ? darkColors.dark : colors.gray1,
             borderColor: isDark ? darkColors.border : colors.gray2,
-            // @ts-expect-error
+            // @ts-expect-error Correct, but too complex background definition
             backgroundImage: `repeating-linear-gradient(45deg, transparent, transparent 20px, ${isDark ? '#18181f' : '#f0f0f0'} 20px, ${isDark ? '#18181f' : '#f0f0f0'} 40px)`,
           },
         ]}>
@@ -42,9 +42,8 @@ const UnmaintainedLabel = ({ alternatives }) => {
             }}>
             You can use{' '}
             {alternatives.map((alternative, index) => (
-              <>
+              <Fragment key={alternative}>
                 <A
-                  key={alternative}
                   href={`/?search=${encodeURIComponent(alternative)}`}
                   style={{ backgroundColor: 'transparent' }}
                   hoverStyle={linkHoverStyle}>
@@ -52,7 +51,7 @@ const UnmaintainedLabel = ({ alternatives }) => {
                 </A>
                 {index < alternatives.length - 1 && alternatives.length > 2 ? ', ' : ' '}
                 {index === alternatives.length - 2 && 'or '}
-              </>
+              </Fragment>
             ))}{' '}
             instead.
           </Label>
@@ -66,6 +65,7 @@ const styles = StyleSheet.create({
   unmaintainedTextWrapper: {
     flexDirection: 'row',
     gap: 6,
+    flexShrink: 1,
   },
   unmaintainedTextContainer: {
     alignItems: 'flex-start',
@@ -79,6 +79,8 @@ const styles = StyleSheet.create({
     gap: 4,
     borderWidth: 1,
     borderLeftWidth: 0,
+    flexShrink: 1,
+    flexWrap: 'wrap',
   },
 });
 

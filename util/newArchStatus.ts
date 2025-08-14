@@ -1,6 +1,7 @@
-import { Library } from '../types';
+import { Library } from '~/types';
 
 export enum NewArchSupportStatus {
+  NewArchOnly = 'new-arch-only',
   Supported = 'supported',
   Unsupported = 'unsupported',
   Untested = 'untested',
@@ -8,7 +9,7 @@ export enum NewArchSupportStatus {
 
 export function getNewArchSupportStatus({ newArchitecture, github, expoGo }: Library) {
   // Assume untested unless indicated otherwise through one of the following tests
-  let flag = undefined;
+  let flag: boolean | string | undefined = undefined;
 
   if (typeof newArchitecture !== 'undefined') {
     flag = newArchitecture;
@@ -23,6 +24,8 @@ export function getNewArchSupportStatus({ newArchitecture, github, expoGo }: Lib
   }
 
   switch (flag) {
+    case 'new-arch-only':
+      return NewArchSupportStatus.NewArchOnly;
     case true:
       return NewArchSupportStatus.Supported;
     case false:

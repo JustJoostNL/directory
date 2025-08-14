@@ -4,21 +4,25 @@ import chunk from 'lodash/chunk';
 import fs from 'node:fs';
 import path from 'node:path';
 
+import debugGithubRepos from '~/debug-github-repos.json';
+import githubRepos from '~/react-native-libraries.json';
+import { fetchNpmStatDataBulk } from '~/scripts/fetch-npm-stat-data';
+import { LibraryDataEntry, Library } from '~/types';
+import { isLaterThan, TimeRange } from '~/util/datetime';
+import { isEmptyOrNull } from '~/util/strings';
+
 import { calculateDirectoryScore, calculatePopularityScore } from './calculate-score';
 import { fetchGithubData, fetchGithubRateLimit, loadGitHubLicenses } from './fetch-github-data';
-import { fetchNpmData, fetchNpmDataBulk } from './fetch-npm-data';
 import fetchReadmeImages from './fetch-readme-images';
 import { fillNpmName, hasMismatchedPackageData, sleep } from './helpers';
-import debugGithubRepos from '../debug-github-repos.json';
-import githubRepos from '../react-native-libraries.json';
-import { Library } from '../types';
-import { isLaterThan, TimeRange } from '../util/datetime';
-import { isEmptyOrNull } from '../util/strings';
 
 // Uses debug-github-repos.json instead, so we have less repositories to crunch
 // each time we run the script
 const USE_DEBUG_REPOS = false;
-const DATASET: Library[] = USE_DEBUG_REPOS ? debugGithubRepos : githubRepos;
+
+// If script should only write to the local data file and not upload to the store.
+// This is useful for debugging and testing purposes.
+const ONLY_WRITE_LOCAL_DATA_FILE = false;
 
 // Loads the GitHub API results from disk rather than hitting the API each time.
 // The first run will hit the API if raw-github-results.json doesn't exist yet.
@@ -26,8 +30,13 @@ const LOAD_GITHUB_RESULTS_FROM_DISK = false;
 
 // If script should try to scrape images from GitHub repositories.
 const SCRAPE_GH_IMAGES = false;
+
+const DATASET: LibraryDataEntry[] = USE_DEBUG_REPOS ? debugGithubRepos : githubRepos;
 const DATA_PATH = path.resolve('assets', 'data.json');
 const GITHUB_RESULTS_PATH = path.join('scripts', 'raw-github-results.json');
+
+const CHUNK_SIZE = 25;
+const SLEEP_TIME = 500;
 
 const invalidRepos = [];
 const mismatchedRepos = [];
@@ -78,59 +87,31 @@ async function buildAndScoreData() {
   console.log('\n🔖 Determining npm package names');
   data = data.map(fillNpmName);
 
-  console.log('\n⬇️ Fetching download stats from npm');
+  console.log('\n⬇️ Fetching download stats from npm-stat');
 
-  // https://github.com/npm/registry/blob/main/docs/download-counts.md#bulk-queries
   let bulkList = [];
 
-  // https://github.com/npm/registry/blob/main/docs/download-counts.md#limits
-  const CHUNK_SIZE = 25;
-
-  // Fetch scoped packages data
-  data = await Promise.all(
-    data.map(async project => {
-      if (!project.template) {
-        if (project.npmPkg.startsWith('@')) {
-          await sleep(Math.max(Math.random() * 2500));
-          return fetchNpmData(project);
-        } else {
-          bulkList.push(project.npmPkg);
-          return project;
-        }
-      }
+  // Filter out template entries, prepare npm-stat API chunks
+  data = data.map(project => {
+    if (!project.template) {
+      bulkList.push(project.npmPkg);
       return project;
-    })
-  );
+    }
+    return project;
+  });
 
-  // Assemble and fetch regular packages data in bulk queries
+  // Assemble and fetch packages data in bulk queries
   bulkList = [...Array(Math.ceil(bulkList.length / CHUNK_SIZE))].map(_ =>
     bulkList.splice(0, CHUNK_SIZE)
   );
 
-  const downloadsList = (
-    await Promise.all(
-      bulkList.map(async (chunk, index) => {
-        await sleep(Math.max(2500 * index, 15000));
-        return await fetchNpmDataBulk(chunk);
-      })
-    )
-  ).flat();
-
-  // const downloadsListWeek = (
-  //   await Promise.all(
-  //     bulkList.map(async (chunk, index) => {
-  //       await sleep(Math.max(2500 * index, 15000));
-  //       return await fetchNpmDataBulk(chunk, 'week');
-  //     })
-  //   )
-  // ).flat();
+  const downloadsList = await fetchNpmStatDataSequentially(bulkList);
 
   // Fill npm data from bulk queries
   data = data.map(project => ({
     ...project,
     npm: {
-      ...(downloadsList.find(entry => entry.name === project.npmPkg)?.npm ?? {}),
-      // ...(downloadsListWeek.find(entry => entry.name === project.npmPkg)?.npm ?? {}),
+      ...(downloadsList.find(entry => entry.name === project.npmPkg)?.npm ?? project.npm),
     },
   }));
 
@@ -214,7 +195,11 @@ async function buildAndScoreData() {
     const existingData = libraries.map(lib => lib.npmPkg);
     const newData = data.map(lib => lib.npmPkg);
     const missingData = existingData.filter(npmPkg => !newData.includes(npmPkg));
-    const currentData = [...libraries.filter(lib => missingData.includes(lib.npmPkg)), ...data];
+
+    const existingPackages = DATASET.map(fillNpmName).map(lib => lib.npmPkg);
+    const dataToFill = missingData.filter(npmPkg => !existingPackages.includes(npmPkg));
+
+    const currentData = [...libraries.filter(lib => dataToFill.includes(lib.npmPkg)), ...data];
 
     const dataWithFallback = currentData.map(entry =>
       Object.keys(entry.npm).length > 0
@@ -226,9 +211,14 @@ async function buildAndScoreData() {
           }
     );
 
+    const finalData = dataWithFallback.filter(npmPkg => !existingPackages.includes(npmPkg));
+    const validEntries = data.map((entry: LibraryDataEntry) => entry.githubUrl);
+
     fileContent = JSON.stringify(
       {
-        libraries: dataWithFallback,
+        libraries: finalData.filter((entry: Library) => {
+          return validEntries.includes(entry.githubUrl);
+        }),
         topics: topicCounts,
         topicsList: Object.keys(topicCounts).sort(),
       },
@@ -237,7 +227,7 @@ async function buildAndScoreData() {
     );
   }
 
-  if (!USE_DEBUG_REPOS) {
+  if (!(USE_DEBUG_REPOS || ONLY_WRITE_LOCAL_DATA_FILE)) {
     await uploadToStore(fileContent);
   }
 
@@ -312,13 +302,20 @@ async function loadRepositoryDataAsync() {
       console.warn('Failed to load data from disk!', error);
     }
   } else {
-    result = await fetchGithubDataThrottled({ data, chunkSize: 25, staggerMs: 2500 });
+    result = await fetchGithubDataThrottled({ data, chunkSize: CHUNK_SIZE, staggerMs: SLEEP_TIME });
   }
 
   return result;
 }
 
 async function fetchLatestData() {
+  if (ONLY_WRITE_LOCAL_DATA_FILE) {
+    console.log('⚠️ Only writing to local data file, skipping blob store fetch');
+    return {
+      latestData: JSON.parse(fs.readFileSync(DATA_PATH, 'utf8')),
+    };
+  }
+
   const { blobs } = await list();
 
   if (blobs?.length > 0) {
@@ -349,4 +346,20 @@ async function uploadToStore(fileContent: string) {
   }
 }
 
-buildAndScoreData();
+async function fetchNpmStatDataSequentially(bulkList: string[][]) {
+  const total = bulkList.flat().length;
+  const results = [];
+
+  for (const [chunkIndex, chunk] of bulkList.entries()) {
+    await sleep(SLEEP_TIME);
+    console.log(`Sleeping ${SLEEP_TIME}ms`);
+
+    const data = await fetchNpmStatDataBulk(chunk);
+    console.log(`${CHUNK_SIZE * (chunkIndex + 1)} of ${total} fetched`);
+
+    results.push(...data);
+  }
+  return results;
+}
+
+await buildAndScoreData();

@@ -1,8 +1,8 @@
 import * as HtmlElements from '@expo/html-elements';
+import { TextProps } from '@expo/html-elements/build/primitives/Text';
 import Link from 'next/link';
-import { PropsWithChildren, PropsWithRef, useContext, useRef } from 'react';
-import { StyleSheet, TextStyle, View } from 'react-native';
-import { useHover, useDimensions, useActive } from 'react-native-web-hooks';
+import { ComponentType, PropsWithChildren, useContext, useState } from 'react';
+import { StyleSheet, TextStyle, View, useWindowDimensions } from 'react-native';
 
 import CustomAppearanceContext from '../context/CustomAppearanceContext';
 
@@ -11,9 +11,7 @@ export const layout = {
 };
 
 export const useLayout = () => {
-  const {
-    window: { width },
-  } = useDimensions();
+  const { width } = useWindowDimensions();
   return {
     isSmallScreen: width < 800,
     isBelowMaxWidth: width < layout.maxWidth,
@@ -80,23 +78,21 @@ const textStyles = StyleSheet.create({
 
 type TextStyles = TextStyle | TextStyle[];
 
-type TextProps = PropsWithRef<
+type CustomTextProps = TextProps &
   PropsWithChildren<{
-    style?: TextStyles;
     id?: string;
     numberOfLines?: number;
-  }>
->;
+  }>;
 
-const createTextComponent = (Element: any, textStyle?: TextStyles) => {
-  const TextComponent = ({ children, style, id, numberOfLines }: TextProps) => {
+const createTextComponent = (Element: ComponentType<TextProps>, textStyle?: TextStyles) => {
+  const TextComponent = ({ children, style, id, numberOfLines }: CustomTextProps) => {
     const { isDark } = useContext(CustomAppearanceContext);
     return (
       <Element
         id={id}
         numberOfLines={numberOfLines}
         style={[
-          textStyles[Element],
+          textStyles[Element.displayName],
           textStyle,
           { color: isDark ? colors.white : colors.black },
           style,
@@ -130,8 +126,7 @@ type AProps = PropsWithChildren<{
 
 export const A = ({ href, target = '_blank', children, style, hoverStyle, ...rest }: AProps) => {
   const { isDark } = useContext(CustomAppearanceContext);
-  const linkRef = useRef();
-  const isHovered = useHover(linkRef);
+  const [isHovered, setIsHovered] = useState(false);
 
   const linkStyles = getLinkStyles(isDark);
   const linkHoverStyles = getLinkHoverStyles(isDark);
@@ -146,22 +141,23 @@ export const A = ({ href, target = '_blank', children, style, hoverStyle, ...res
           ...(isHovered && linkHoverStyles),
           ...(style as any),
           ...(isHovered && hoverStyle),
-        }}
-        ref={linkRef}>
+        }}>
         {children}
       </Link>
     );
   }
 
   return (
-    <HtmlElements.A
-      {...rest}
-      href={href}
-      target={target}
-      style={[linkStyles, isHovered && linkHoverStyles, style, isHovered && hoverStyle]}
-      ref={linkRef}>
-      {children}
-    </HtmlElements.A>
+    <View onPointerEnter={() => setIsHovered(true)} onPointerLeave={() => setIsHovered(false)}>
+      <HtmlElements.A
+        {...rest}
+        href={href}
+        target={target}
+        hrefAttrs={{ target }}
+        style={[linkStyles, isHovered && linkHoverStyles, style, isHovered && hoverStyle]}>
+        {children}
+      </HtmlElements.A>
+    </View>
   );
 };
 
@@ -180,14 +176,16 @@ const getLinkHoverStyles = (isDark: boolean) => ({
 });
 
 export const HoverEffect = ({ children }) => {
-  const ref = useRef();
-  const isHovered = useHover(ref);
-  const isActive = useActive(ref);
+  const [isHovered, setIsHovered] = useState(false);
+  const [isActive, setIsActive] = useState(false);
 
   return (
     <View
-      ref={ref}
       style={[isHovered && { opacity: 0.8 }, isActive && { opacity: 0.5 }]}
+      onPointerEnter={() => setIsHovered(true)}
+      onPointerLeave={() => setIsHovered(false)}
+      onPointerDown={() => setIsActive(true)}
+      onPointerUp={() => setIsActive(false)}
       accessible={false}>
       {children}
     </View>

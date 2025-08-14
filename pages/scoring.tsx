@@ -1,42 +1,13 @@
 import { useContext } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { H2, P, Headline, A, colors, darkColors, H3 } from '~/common/styleguide';
+import { A, colors, darkColors, H2, H3, P } from '~/common/styleguide';
 import ContentContainer from '~/components/ContentContainer';
 import TrendingMark from '~/components/Library/TrendingMark';
 import Navigation from '~/components/Navigation';
 import PageMeta from '~/components/PageMeta';
+import { ScoringCriterion } from '~/components/ScoringCriterion';
 import CustomAppearanceContext from '~/context/CustomAppearanceContext';
-
-const ScoringCriterion = ({ children, headline, score = undefined }) => {
-  const { isDark } = useContext(CustomAppearanceContext);
-  const textStyle = {
-    color: isDark ? colors.gray2 : colors.black,
-  };
-  const borderStyle = {
-    borderColor: isDark ? darkColors.border : colors.gray2,
-  };
-  const isPositiveModifier = score > 0;
-  return (
-    <View style={[styles.criterionWrapper, borderStyle]}>
-      <Headline style={[styles.criterion, textStyle]}>
-        {headline}
-        {score && (
-          <Headline
-            style={[
-              styles.criterionScore,
-              borderStyle,
-              { color: isPositiveModifier ? colors.success : colors.error },
-            ]}>
-            {isPositiveModifier ? '+' : ''}
-            {score}
-          </Headline>
-        )}
-      </Headline>
-      <P style={[styles.paragraph, { marginBottom: 0 }, textStyle]}>{children}</P>
-    </View>
-  );
-};
 
 const Scoring = () => {
   const { isDark } = useContext(CustomAppearanceContext);
@@ -172,9 +143,7 @@ const Scoring = () => {
           formula used for calculating the score looks as following:
           <br />
           <View style={styles.formula}>
-            <code>
-              (lastWeekDownloads - Math.floor(monthlyDownloads / 4.5)) / monthlyDownloads)
-            </code>
+            <code>(lastWeekDownloads / Math.floor(monthlyDownloads / 4.25)) / 5</code>
           </View>
           <br />
           <View style={[styles.sidenoteContainer]}>
@@ -184,21 +153,21 @@ const Scoring = () => {
             </P>
           </View>
         </ScoringCriterion>
-        <ScoringCriterion headline="Many downloads" score={+5}>
-          Libraries with more than 10,000 monthly downloads and Popularity Gain score above 0.25
+        <ScoringCriterion headline="Many downloads" score={+0.25}>
+          Libraries with more than 15,000 monthly downloads and Popularity Gain score above 0.25
           meet this criterion.
         </ScoringCriterion>
-        <ScoringCriterion headline="Not many downloads" score={-0.25}>
-          Libraries with less than 500 monthly downloads meet this criterion.
+        <ScoringCriterion headline="Not many downloads" score={-0.75}>
+          Libraries with less than 1,000 monthly downloads meet this criterion.
         </ScoringCriterion>
-        <ScoringCriterion headline="Not many followers" score={-0.1}>
+        <ScoringCriterion headline="Not many followers" score={-0.25}>
           Libraries with less than 25 starts on GitHub meet this criterion.
         </ScoringCriterion>
-        <ScoringCriterion headline="No longer maintained" score={-0.5}>
+        <ScoringCriterion headline="No longer maintained" score={-0.75}>
           Libraries that are marked with &quot;unmaintained&quot; flag meet this criterion.
         </ScoringCriterion>
         <ScoringCriterion headline="Very fresh package" score={-0.5}>
-          Libraries that first version was published less that 3 days ago meet this criterion.
+          Libraries that first version was published less that 7 days ago meet this criterion.
         </ScoringCriterion>
         <br />
       </ContentContainer>
@@ -225,37 +194,6 @@ const styles = StyleSheet.create({
     borderLeftWidth: 8,
     padding: 16,
     marginBottom: 17,
-  },
-  criterionWrapper: {
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderWidth: 1,
-    borderStyle: 'solid',
-    borderRadius: 6,
-    marginBottom: 17,
-  },
-  criterion: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  criterionScore: {
-    // @ts-ignore
-    float: 'left',
-    marginRight: 16,
-    width: 50,
-    fontSize: 15,
-    fontWeight: '700',
-    padding: 1,
-    borderWidth: 1,
-    borderStyle: 'solid',
-    borderRadius: 4,
-    textAlign: 'center',
-  },
-  criterionScoreSymbol: {
-    position: 'relative',
-    top: 2,
-    left: 4,
   },
   formula: {
     paddingHorizontal: 16,

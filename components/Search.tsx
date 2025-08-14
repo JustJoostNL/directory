@@ -20,7 +20,7 @@ type Props = {
 };
 
 const Search = ({ query, total }: Props) => {
-  const { search, order, direction, ...filterParams } = query;
+  const { search, order, direction, offset, ...filterParams } = query;
   const [isInputFocused, setInputFocused] = useState(false);
   const [isFilterVisible, setFilterVisible] = useState(Object.keys(filterParams).length > 0);
   const [isApple, setIsApple] = useState<boolean | null>(null);
@@ -45,12 +45,12 @@ const Search = ({ query, total }: Props) => {
   }, [isApple]);
 
   const typingCallback = useDebouncedCallback((text: string) => {
-    Router.replace(urlWithQuery('/', { ...query, search: text, offset: null }));
+    void Router.replace(urlWithQuery('/', { ...query, search: text, offset: null }));
   }, 200);
 
-  const handleClearAllPress = () => {
-    Router.replace(urlWithQuery('/', { search: query.search, offset: null }));
-  };
+  function handleClearAllPress() {
+    void Router.replace(urlWithQuery('/', { search: query.search, offset: undefined }));
+  }
 
   return (
     <>
@@ -80,11 +80,11 @@ const Search = ({ query, total }: Props) => {
                     if (search) {
                       event.preventDefault();
                       inputRef.current.value = '';
-                      Router.replace(
+                      void Router.replace(
                         urlWithQuery('/', {
                           ...query,
-                          search: null,
-                          offset: null,
+                          search: undefined,
+                          offset: undefined,
                         })
                       );
                     } else {
@@ -203,7 +203,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: colors.white,
     fontFamily: 'inherit',
-    // @ts-ignore
     outlineOffset: -2,
   },
   searchIcon: {
